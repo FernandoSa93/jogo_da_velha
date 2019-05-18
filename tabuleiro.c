@@ -20,7 +20,10 @@ char pos11[1], pos12[1], pos13[1],
      pos21[1], pos22[1], pos23[1],
      pos31[1], pos32[1], pos33[1];
 char jogada[1];
+char player[2];
 bool ganhador = false;
+bool jogadorCorreto = false;
+bool coordenadasCorretas = false;
 
 //Nome da fila
 const char* NOME_FILA = "/jogoVelha";
@@ -36,17 +39,10 @@ typedef struct JogoVelha {
 ssize_t get_msg_buffer_size(mqd_t queue);
 void realiza_jogada(TJogoVelha* jv);
 void verifica_ganhador(TJogoVelha* jv);
+void valida_jogada(TJogoVelha* jv);
+void valida_coordenadas(TJogoVelha* jv);
+void tabuleiro();
 
-void tabuleiro() {
-	system("clear");
-	printf("Feito por Nadine e Fernando\n\n\n");
-	printf("            JOGO DA VELHA\n\n");
-	printf("            %-1s  |  %-1s  |  %-1s  \n", pos11, pos12, pos13);
-	printf("          -----------------\n");
-	printf("            %-1s  |  %-1s  |  %-1s  \n", pos21, pos22, pos23);
-	printf("          -----------------\n");
-	printf("            %-1s  |  %-1s  |  %-1s  \n\n\n", pos31, pos32, pos33);
-}
 
 int main(void) {
 	//Declaração da fila
@@ -69,6 +65,9 @@ int main(void) {
 		tam_buffer = get_msg_buffer_size(queue);
 		buffer = calloc(tam_buffer, 1);
 
+		tabuleiro();
+		valida_jogada((TJogoVelha*) buffer);
+
 		//Receber (mq_recv)
 		nbytes = mq_receive(queue, buffer, tam_buffer, NULL);
 		if (nbytes == -1) {
@@ -76,10 +75,12 @@ int main(void) {
 			exit(4);
 		}
 
-		tabuleiro();
+		valida_coordenadas((TJogoVelha*) buffer);
 
-		realiza_jogada((TJogoVelha*) buffer);
-		verifica_ganhador((TJogoVelha*) buffer);	
+		if ((jogadorCorreto) && (coordenadasCorretas)) {
+			realiza_jogada((TJogoVelha*) buffer);
+			verifica_ganhador((TJogoVelha*) buffer);
+		}	
 	}
 
 	//Liberar descritor (mq_cdeve acumular o pesolose)
@@ -91,48 +92,69 @@ int main(void) {
 	exit(EXIT_SUCCESS);
 }
 
-void realiza_jogada(TJogoVelha* jv) {
-	if ((strcmp(jv->playerID, " ") != 0) || (strcmp(jv->playerID, "p2") != 0)) {
+void tabuleiro() {
+	system("clear");
+	printf("Feito por Nadine e Fernando\n\n\n");
+	printf("            JOGO DA VELHA\n\n");
+	printf("            %-1s  |  %-1s  |  %-1s  \n", pos11, pos12, pos13);
+	printf("          -----------------\n");
+	printf("            %-1s  |  %-1s  |  %-1s  \n", pos21, pos22, pos23);
+	printf("          -----------------\n");
+	printf("            %-1s  |  %-1s  |  %-1s  \n\n\n", pos31, pos32, pos33);
+}
+
+void valida_jogada(TJogoVelha* jv) {
+	if ((strcmp(player, "") == 0) || (strcmp(player, "p2") == 0)) {
 		printf("Aguardando jogada do Jogador 1:\n");
-	} else {
+		jogadorCorreto = true;
+	} else if (strcmp(player, "p1") == 0){
 		printf("Aguardando jogada do Jogador 2:\n");
-	}
-
-	if ((strcmp(jv->playerID, "p1") != 0) || (strcmp(jv->playerID, "p2") != 0)) {
-		printf("Jogador inválido!\n");
+		jogadorCorreto = true;
 	} else {
-		if (strcmp(jv->playerID, "p1") == 0) {
-			sprintf(jogada, "%s", "X");
-		} else {
-			sprintf(jogada, "%s", "O");
-		}
-
-		while (((jv->coord1 > 3) || (jv->coord1 < 1)) ||
-		      ((jv->coord2 > 3) || (jv->coord2 < 1))) {
-			printf("Jogada inválida! Tente novamente.\n");
-		}
-		
-		if ((jv->coord1 == 1) && (jv->coord2 == 1)) {
-			sprintf(pos11, "%s", jogada);
-		} else if ((jv->coord1 == 1) && (jv->coord2 == 2)) {	
-			sprintf(pos12, "%s", jogada);
-		} else if ((jv->coord1 == 1) && (jv->coord2 == 3)) {	
-			sprintf(pos13, "%s", jogada);
-		} else if ((jv->coord1 == 2) && (jv->coord2 == 1)) {	
-			sprintf(pos21, "%s", jogada);
-		} else if ((jv->coord1 == 2) && (jv->coord2 == 2)) {	
-			sprintf(pos22, "%s", jogada);
-		} else if ((jv->coord1 == 2) && (jv->coord2 == 3)) {	
-			sprintf(pos23, "%s", jogada);
-		} else if ((jv->coord1 == 3) && (jv->coord2 == 1)) {	
-			sprintf(pos31, "%s", jogada);
-		} else if ((jv->coord1 == 3) && (jv->coord2 == 2)) {	
-			sprintf(pos32, "%s", jogada);
-		} else if ((jv->coord1 == 3) && (jv->coord2 == 3)) {	
-			sprintf(pos33, "%s", jogada);
-		}
-		printf("Jogada %d %d realizada com sucesso!",jv->coord1, jv->coord2);
+		printf("Jogador inválido!\n");
+		sleep(3);
+		jogadorCorreto = false;
 	}
+	sprintf(player, "%s", jv->playerID);
+}
+void valida_coordenadas(TJogoVelha* jv) {
+	if (((jv->coord1 > 3) || (jv->coord1 < 1)) ||
+            ((jv->coord2 > 3) || (jv->coord2 < 1))) {
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else {
+		coordenadasCorretas = true;
+	}
+}
+
+void realiza_jogada(TJogoVelha* jv) {
+	if (strcmp(jv->playerID, "p1") == 0) {
+		sprintf(jogada, "%s", "X");
+	} else {
+		sprintf(jogada, "%s", "O");
+	}
+		
+	if ((jv->coord1 == 1) && (jv->coord2 == 1)) {
+		sprintf(pos11, "%s", jogada);
+	} else if ((jv->coord1 == 1) && (jv->coord2 == 2)) {	
+		sprintf(pos12, "%s", jogada);
+	} else if ((jv->coord1 == 1) && (jv->coord2 == 3)) {	
+		sprintf(pos13, "%s", jogada);
+	} else if ((jv->coord1 == 2) && (jv->coord2 == 1)) {	
+		sprintf(pos21, "%s", jogada);
+	} else if ((jv->coord1 == 2) && (jv->coord2 == 2)) {	
+		sprintf(pos22, "%s", jogada);
+	} else if ((jv->coord1 == 2) && (jv->coord2 == 3)) {	
+		sprintf(pos23, "%s", jogada);
+	} else if ((jv->coord1 == 3) && (jv->coord2 == 1)) {	
+		sprintf(pos31, "%s", jogada);
+	} else if ((jv->coord1 == 3) && (jv->coord2 == 2)) {	
+		sprintf(pos32, "%s", jogada);
+	} else if ((jv->coord1 == 3) && (jv->coord2 == 3)) {	
+		sprintf(pos33, "%s", jogada);
+	}
+	printf("Jogada %d %d realizada com sucesso!\n",jv->coord1, jv->coord2);
 	sleep(3);
 }
 
@@ -165,7 +187,6 @@ ssize_t get_msg_buffer_size(mqd_t queue) {
 
 	/*Determina max. msg size; allocate buffer to receive msg */
 	if (mq_getattr(queue, &attr) != -1) {
-		printf("max msg size: %ld\n", attr.mq_msgsize);
 		return attr.mq_msgsize;
 	}
 
