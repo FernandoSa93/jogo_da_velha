@@ -126,6 +126,43 @@ void valida_coordenadas(TJogoVelha* jv) {
 	} else {
 		coordenadasCorretas = true;
 	}
+	if(((jv->coord1 == 1) && (jv->coord2 == 1)) && (strlen(pos11) != 0)){
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 1) && (jv->coord2 == 2)) && (strlen(pos12) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 1) && (jv->coord2 == 3)) && (strlen(pos13) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 2) && (jv->coord2 == 1)) && (strlen(pos21) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 2) && (jv->coord2 == 2)) && (strlen(pos22) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 2) && (jv->coord2 == 3)) && (strlen(pos23) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 3) && (jv->coord2 == 1)) && (strlen(pos31) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 3) && (jv->coord2 == 2) && (strlen(pos32) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	} else if(((jv->coord1 == 3) && (jv->coord2 == 3) && (strlen(pos33) != 0)){ 
+		printf("Jogada inválida! Tente novamente.\n");
+		sleep(3);
+		coordenadasCorretas = false;
+	}
 }
 
 void realiza_jogada(TJogoVelha* jv) {
