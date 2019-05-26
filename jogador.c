@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 	mqd_t queue;
 	//Declaração da mensagem
 	TJogoVelha j;
-	char* jogador = argv[1];
+	char* jogador = argv[2];
 
 	//Obter descritor (mq_open+O_WRONLY+O_CREAT)
 	queue = mq_open(NOME_FILA, O_WRONLY | O_CREAT, 0770, NULL);
