@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	//Montar a mensagem
-	strncpy(j.playerID, jogador, 29);
+	strcpy(j.playerID, jogador);
 	j.coord1 = atoi(argv[2]);
 	j.coord2 = atoi(argv[3]);
 
