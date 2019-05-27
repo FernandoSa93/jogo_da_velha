@@ -9,11 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <stdbool.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 //Variáveis globais
 char pos11[1], pos12[1], pos13[1],
@@ -22,8 +24,8 @@ char pos11[1], pos12[1], pos13[1],
 char jogada[1];
 char player[2];
 bool ganhador = false;
-bool jogadorCorreto = false;
-bool coordenadasCorretas = false;
+bool jogadorCorreto = true;
+bool coordenadasCorretas = true;
 
 //Nome da fila
 const char* NOME_FILA = "/jogoVelha";
@@ -38,11 +40,12 @@ typedef struct JogoVelha {
 //Declarações das funções
 ssize_t get_msg_buffer_size(mqd_t queue);
 void realiza_jogada(TJogoVelha* jv);
-void verifica_ganhador(TJogoVelha* jv);
+void verifica_ganhador();
 void valida_jogada(TJogoVelha* jv);
 void valida_coordenadas(TJogoVelha* jv);
+void mensagem_jogador();
 void tabuleiro();
-
+void grava_log();
 
 int main(void) {
 	//Declaração da fila
@@ -61,12 +64,13 @@ int main(void) {
 	}
 
 	while(!ganhador){
+		//Problema: buffer está fazendo com que variaveis pos* recebam caracteres indevidos durante a jogada(RESOLVER)
 		//Alocar buffer para receber msg
 		tam_buffer = get_msg_buffer_size(queue);
 		buffer = calloc(tam_buffer, 1);
 
 		tabuleiro();
-		valida_jogada((TJogoVelha*) buffer);
+		mensagem_jogador();
 
 		//Receber (mq_recv)
 		nbytes = mq_receive(queue, buffer, tam_buffer, NULL);
@@ -76,11 +80,13 @@ int main(void) {
 		}
 
 		valida_coordenadas((TJogoVelha*) buffer);
+		valida_jogada((TJogoVelha*) buffer);
 
 		if ((jogadorCorreto) && (coordenadasCorretas)) {
 			realiza_jogada((TJogoVelha*) buffer);
-			verifica_ganhador((TJogoVelha*) buffer);
-		}	
+			verifica_ganhador();
+		}
+		grava_log();	
 	}
 
 	//Liberar descritor (mq_cdeve acumular o pesolose)
@@ -104,18 +110,52 @@ void tabuleiro() {
 }
 
 void valida_jogada(TJogoVelha* jv) {
+	if (coordenadasCorretas) {
+		if (strcmp(player, "") == 0) {
+			if (strcmp(jv->playerID, "p1") == 0) {
+				strcpy(player, "p1");
+				jogadorCorreto = true;
+			} else if (strcmp(jv->playerID, "p2") == 0){
+				printf("Que feio jogador p2! Aguarde a sua vez!\n");
+				jogadorCorreto = false;
+				sleep(3);
+			} else {
+				printf("Invasor detectado! Não atrapalhe o jogo!\n");
+				jogadorCorreto = false;
+				sleep(3);
+			}
+		} else if (strcmp(jv->playerID, "p1") == 0){
+			if ((strcmp(player, "p1") != 0)) {
+				strcpy(player, "p1");
+				jogadorCorreto = true;
+			} else {
+				printf("Que feio jogador %s! Aguarde a sua vez!\n", player);
+				jogadorCorreto = false;
+				sleep(3);
+			}
+		} else if (strcmp(jv->playerID, "p2") == 0) {
+			if (strcmp(player, "p2") != 0) {
+				strcpy(player, "p2");
+				jogadorCorreto = true;
+			} else {
+				printf("Que feio jogador %s! Aguarde a sua vez!\n", player);
+				jogadorCorreto = false;
+				sleep(3);
+			}	
+		} else { 
+			printf("Invasor detectado! Não atrapalhe o jogo!\n");
+			jogadorCorreto = false;
+			sleep(3);
+		}
+	}
+}
+
+void mensagem_jogador() {
 	if ((strcmp(player, "") == 0) || (strcmp(player, "p2") == 0)) {
 		printf("Aguardando jogada do Jogador 1:\n");
-		jogadorCorreto = true;
 	} else if (strcmp(player, "p1") == 0){
 		printf("Aguardando jogada do Jogador 2:\n");
-		jogadorCorreto = true;
-	} else {
-		printf("Jogador inválido!\n");
-		sleep(3);
-		jogadorCorreto = false;
-	}
-	sprintf(player, "%s", jv->playerID);
+	} 
 }
 void valida_coordenadas(TJogoVelha* jv) {
 	if (((jv->coord1 > 3) || (jv->coord1 < 1)) ||
@@ -166,36 +206,37 @@ void valida_coordenadas(TJogoVelha* jv) {
 }
 
 void realiza_jogada(TJogoVelha* jv) {
-	if (strcmp(jv->playerID, "p1") == 0) {
-		sprintf(jogada, "%s", "X");
+	//Problema: Quando jogador escolhe posição 1 1, variável player recebe um 'X', ex: p1X(RESOLVER)
+	if (strcmp(player, "p1") == 0) {
+		strcpy(jogada, "X");
 	} else {
-		sprintf(jogada, "%s", "O");
+		strcpy(jogada, "O");
 	}
 		
 	if ((jv->coord1 == 1) && (jv->coord2 == 1)) {
-		sprintf(pos11, "%s", jogada);
+		strcpy(pos11, jogada);
 	} else if ((jv->coord1 == 1) && (jv->coord2 == 2)) {	
-		sprintf(pos12, "%s", jogada);
+		strcpy(pos12, jogada);
 	} else if ((jv->coord1 == 1) && (jv->coord2 == 3)) {	
-		sprintf(pos13, "%s", jogada);
+		strcpy(pos13, jogada);
 	} else if ((jv->coord1 == 2) && (jv->coord2 == 1)) {	
-		sprintf(pos21, "%s", jogada);
+		strcpy(pos21, jogada);
 	} else if ((jv->coord1 == 2) && (jv->coord2 == 2)) {	
-		sprintf(pos22, "%s", jogada);
+		strcpy(pos22, jogada);
 	} else if ((jv->coord1 == 2) && (jv->coord2 == 3)) {	
-		sprintf(pos23, "%s", jogada);
+		strcpy(pos23, jogada);
 	} else if ((jv->coord1 == 3) && (jv->coord2 == 1)) {	
-		sprintf(pos31, "%s", jogada);
+		strcpy(pos31, jogada);
 	} else if ((jv->coord1 == 3) && (jv->coord2 == 2)) {	
-		sprintf(pos32, "%s", jogada);
+		strcpy(pos32, jogada);
 	} else if ((jv->coord1 == 3) && (jv->coord2 == 3)) {	
-		sprintf(pos33, "%s", jogada);
+		strcpy(pos33, jogada);
 	}
 	printf("Jogada %d %d realizada com sucesso!\n",jv->coord1, jv->coord2);
 	sleep(3);
 }
 
-void verifica_ganhador(TJogoVelha* jv){
+void verifica_ganhador(){
 	if (((strcmp(pos11, "X") == 0) && (strcmp(pos12, "X") == 0) && (strcmp(pos13, "X") == 0)) || 
 	   ((strcmp(pos21, "X") == 0) && (strcmp(pos22, "X") == 0) && (strcmp(pos23, "X") == 0)) || 
 	   ((strcmp(pos31, "X") == 0) && (strcmp(pos32, "X") == 0) && (strcmp(pos33, "X") == 0)) ||  
@@ -204,7 +245,8 @@ void verifica_ganhador(TJogoVelha* jv){
 	   ((strcmp(pos13, "X") == 0) && (strcmp(pos23, "X") == 0) && (strcmp(pos33, "X") == 0)) || 
 	   ((strcmp(pos11, "X") == 0) && (strcmp(pos22, "X") == 0) && (strcmp(pos33, "X") == 0)) || 
 	   ((strcmp(pos13, "X") == 0) && (strcmp(pos22, "X") == 0) && (strcmp(pos31, "X") == 0))) {
-		printf("Jogador 1 ganhou!");
+		tabuleiro();
+		printf("Jogador 1 ganhou!\n");
 		ganhador = true;
 	} else if (((strcmp(pos11, "O") == 0) && (strcmp(pos12, "O") == 0) && (strcmp(pos13, "O") == 0)) || 
 	   	  ((strcmp(pos21, "O") == 0) && (strcmp(pos22, "O") == 0) && (strcmp(pos23, "O") == 0)) || 
@@ -214,9 +256,85 @@ void verifica_ganhador(TJogoVelha* jv){
 	   	  ((strcmp(pos13, "O") == 0) && (strcmp(pos23, "O") == 0) && (strcmp(pos33, "O") == 0)) || 
 	   	  ((strcmp(pos11, "O") == 0) && (strcmp(pos22, "O") == 0) && (strcmp(pos33, "O") == 0)) || 
 	   	  ((strcmp(pos13, "O") == 0) && (strcmp(pos22, "O") == 0) && (strcmp(pos31, "O") == 0))) {
-		printf("Jogador 2 ganhou!");
+		tabuleiro();
+		printf("Jogador 2 ganhou!\n");
 		ganhador = true;
 	}
+}
+
+void grava_log() {
+	int fd;
+	char nomeLog[50]= " ";
+	char texto[5000]=" ";
+	char status[50]= " ";
+
+	if (strcmp(player, "p1") == 0) {
+		strcpy(nomeLog, "log_jogadas_player1.txt");
+	} else if (strcmp(player, "p2") == 0){
+		strcpy(nomeLog, "log_jogadas_player2.txt");
+	} else {
+		strcpy(nomeLog, "log_jogadas_player1.txt");
+	}
+	
+	fd = open(nomeLog, O_RDONLY);
+        if (fd == -1) {  //Arquivo não existe
+                fd = open(nomeLog, O_CREAT | O_RDWR, S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR);
+                if (fd == -1) {
+                        perror("Problema na criação!");
+                        exit(EXIT_FAILURE);
+                }
+		if (ganhador) {
+			strcpy(status, "jogada ganhadora");
+		} else if (!jogadorCorreto) {
+			strcpy(status, "jogador incorreto");
+		} else if (!coordenadasCorretas) {
+			strcpy(status, "jogada invalida");
+		} else if (coordenadasCorretas) {
+			strcpy(status, "jogada valida");
+		}
+                
+		//Falta descobrir como salvar a data e hora
+		strcat(texto, "; ");
+		if (strcmp(player, "") == 0) {
+			strcat(texto, "p1");
+		} else {
+			strcat(texto, player);
+		}
+		strcat(texto, ";");
+		strcat(texto, "lance:");
+		strcat(texto, jogada);
+		strcat(texto, ";");
+		strcat(texto, status);
+		
+		if (write(fd, texto, 100) != 100) perror("log");
+        } else {  //Arquivo existe
+		fd = open(nomeLog, O_RDWR | O_APPEND);
+		if (ganhador) {
+			strcpy(status, "jogada ganhadora");
+		} else if (!jogadorCorreto) {
+			strcpy(status, "jogador incorreto");
+		} else if (!coordenadasCorretas) {
+			strcpy(status, "jogada invalida");
+		} else if (coordenadasCorretas) {
+			strcpy(status, "jogada valida");
+		}
+                
+		//Falta descobrir como salvar a data e hora
+		strcat(texto, "; ");
+		if (strcmp(player, "") == 0) {
+			strcat(texto, "p1");
+		} else {
+			strcat(texto, player);
+		}
+		strcat(texto, "; ");
+		strcat(texto, "lance:");
+		strcat(texto, jogada);
+		strcat(texto, "; ");
+		strcat(texto, status);
+		
+		if (write(fd, texto, 100) != 100) perror("log");
+        }
+	close (fd);
 }
 
 ssize_t get_msg_buffer_size(mqd_t queue) {
