@@ -21,7 +21,7 @@
 char pos[3][3];
 char jogada[1];
 char player[2];
-char playerID[2];
+char dataHora[100];
 bool ganhador = false;
 bool jogadorCorreto = true;
 bool coordenadasCorretas = true;
@@ -40,11 +40,12 @@ typedef struct JogoVelha {
 ssize_t get_msg_buffer_size(mqd_t queue);
 void realiza_jogada(TJogoVelha* jv);
 void verifica_ganhador();
-void valida_jogada(char playerID[2]);
+void valida_jogada(TJogoVelha* jv);
 void valida_coordenadas(TJogoVelha* jv);
 void mensagem_jogador();
 void tabuleiro();
 void grava_log();
+void PIPE_data_hora();
 
 int main(void) {
 	//Declaração da fila
@@ -65,7 +66,6 @@ int main(void) {
 
 
 	while(!ganhador){
-		//Problema: buffer está fazendo com que variaveis pos* recebam caracteres indevidos durante a jogada(RESOLVER)
 		//Alocar buffer para receber msg
 		tam_buffer = get_msg_buffer_size(queue);
 		buffer = calloc(tam_buffer, 1);
@@ -81,20 +81,19 @@ int main(void) {
 		}
 
 		TJogoVelha* jv = ((TJogoVelha*) buffer);
-		strcpy(playerID, jv->playerID); 
 
-		valida_coordenadas((TJogoVelha*) buffer);
-		valida_jogada(playerID);
+		valida_coordenadas(jv);
+		valida_jogada(jv);
 
 		if ((jogadorCorreto) && (coordenadasCorretas)) {
-			realiza_jogada((TJogoVelha*) buffer);
+			realiza_jogada(jv);
 			verifica_ganhador();
+			strcpy(player, jv->playerID);
 		}
 		grava_log();	
 	}
 
 	//Liberar descritor (mq_cdeve acumular o pesolose)
-	//
 	mq_unlink(NOME_FILA);
 	mq_close(queue);	
 	printf("Fim!\n");
@@ -113,13 +112,13 @@ void tabuleiro() {
 	printf("            %-1s  |  %-1s  |  %-1s  \n\n\n", pos[6], pos[7], pos[8]);
 }
 
-void valida_jogada(char playerID[2]) {
+void valida_jogada(TJogoVelha* jv) {
 	if (coordenadasCorretas) {
-		if (strcmp(player, "") == 0) {
-			if (strcmp(playerID, "p1") == 0) {
+		if (strlen(player) == 0) {
+			if (strcmp(jv->playerID, "p1") == 0) {
 				strcpy(player, "p1");
 				jogadorCorreto = true;
-			} else if (strcmp(playerID, "p2") == 0){
+			} else if (strcmp(jv->playerID, "p2") == 0){
 				printf("Que feio jogador p2! Aguarde a sua vez!\n");
 				jogadorCorreto = false;
 				sleep(3);
@@ -128,7 +127,7 @@ void valida_jogada(char playerID[2]) {
 				jogadorCorreto = false;
 				sleep(3);
 			}
-		} else if (strcmp(playerID, "p1") == 0){
+		} else if (strcmp(jv->playerID, "p1") == 0){
 			if ((strcmp(player, "p1") != 0)) {
 				strcpy(player, "p1");
 				jogadorCorreto = true;
@@ -137,7 +136,7 @@ void valida_jogada(char playerID[2]) {
 				jogadorCorreto = false;
 				sleep(3);
 			}
-		} else if (strcmp(playerID, "p2") == 0) {
+		} else if (strcmp(jv->playerID, "p2") == 0) {
 			if (strcmp(player, "p2") != 0) {
 				strcpy(player, "p2");
 				jogadorCorreto = true;
@@ -155,7 +154,7 @@ void valida_jogada(char playerID[2]) {
 }
 
 void mensagem_jogador() {
-	if ((strcmp(player, "") == 0) || (strcmp(player, "p2") == 0)) {
+	if ((strlen(player) == 0) || (strcmp(player, "p2") == 0)) {
 		printf("Aguardando jogada do Jogador 1:\n");
 	} else if (strcmp(player, "p1") == 0){
 		printf("Aguardando jogada do Jogador 2:\n");
@@ -210,8 +209,7 @@ void valida_coordenadas(TJogoVelha* jv) {
 }
 
 void realiza_jogada(TJogoVelha* jv) {
-	//Problema: Quando jogador escolhe posição 1 1, variável player recebe um 'X', ex: p1X(RESOLVER)
-	if (strcmp(player, "p1") == 0) {
+	if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
 		strcpy(jogada, "X");
 	} else {
 		strcpy(jogada, "O");
@@ -272,21 +270,20 @@ void grava_log() {
 	char texto[5000]=" ";
 	char status[50]= " ";
 
-	if (strcmp(player, "p1") == 0) {
+	if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
 		strcpy(nomeLog, "log_jogadas_player1.txt");
 	} else if (strcmp(player, "p2") == 0){
 		strcpy(nomeLog, "log_jogadas_player2.txt");
-	} else {
-		strcpy(nomeLog, "log_jogadas_player1.txt");
 	}
 	
 	fd = open(nomeLog, O_RDONLY);
-        if (fd == -1) {  //Arquivo não existe
+        if (fd == -1) {  //Arquivo ainda não existe
                 fd = open(nomeLog, O_CREAT | O_RDWR, S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR);
                 if (fd == -1) {
                         perror("Problema na criação!");
                         exit(EXIT_FAILURE);
                 }
+
 		if (ganhador) {
 			strcpy(status, "jogada ganhadora");
 		} else if (!jogadorCorreto) {
@@ -297,21 +294,26 @@ void grava_log() {
 			strcpy(status, "jogada valida");
 		}
                 
-		//Falta descobrir como salvar a data e hora
+		PIPE_data_hora();
+		strcat(texto, dataHora);
 		strcat(texto, ";");
-		if (strcmp(player, "") == 0) {
+		if (strlen(player) == 0) {
 			strcat(texto, "p1");
 		} else {
 			strcat(texto, player);
 		}
 		strcat(texto, ";");
 		strcat(texto, "lance:");
-		strcat(texto, jogada);
+		if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
+			strcat(texto, "X");
+		} else if (strcmp(player, "p2") == 0) {
+			strcat(texto, "O");
+		}
 		strcat(texto, ";");
 		strcat(texto, status);
 		
 		if (write(fd, texto, 100) != 100) perror("log");
-        } else {  //Arquivo existe
+        } else {  //Arquivo já existe
 		fd = open(nomeLog, O_RDWR | O_APPEND);
 		if (ganhador) {
 			strcpy(status, "jogada ganhadora");
@@ -323,22 +325,47 @@ void grava_log() {
 			strcpy(status, "jogada valida");
 		}
                 
-		//Falta descobrir como salvar a data e hora
+		PIPE_data_hora();
+		strcat(texto, dataHora);
 		strcat(texto, ";");
-		if (strcmp(player, "") == 0) {
+		if (strlen(player) == 0) {
 			strcat(texto, "p1");
 		} else {
 			strcat(texto, player);
 		}
 		strcat(texto, ";");
 		strcat(texto, "lance:");
-		strcat(texto, jogada);
+		if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
+			strcat(texto, "X");
+		} else if (strcmp(player, "p2") == 0) {
+			strcat(texto, "O");
+		}
 		strcat(texto, ";");
 		strcat(texto, status);
 		
 		if (write(fd, texto, 100) != 100) perror("log");
         }
 	close (fd);
+}
+
+//Método PIPE para pegar a saída do comando date(IPC adicional)
+void PIPE_data_hora() {
+	int pfd[2];
+	if (pipe(pfd) != 0) perror("pipe()");
+	else
+		switch(fork()) {
+		case 0:
+			close(pfd[0]);    //fecha a leitura
+			dup2(pfd[1], 1);  //Envia a saída do exec para o pipe
+			dup2(pfd[1], 2);  // envia stderr para o pipe
+			close(pfd[1]);    //fecha a escrita
+			execlp("date", "date", NULL);
+			perror("exec 'wc'"); break;
+		default: 
+			close(pfd[1]);    //fecha a escrita
+			while(read(pfd[0], dataHora, sizeof(dataHora)) != 0) {} //Grava saída do exec na variável
+			
+		}
 }
 
 ssize_t get_msg_buffer_size(mqd_t queue) {
