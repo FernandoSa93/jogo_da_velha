@@ -25,6 +25,8 @@ char dataHora[100];
 bool ganhador = false;
 bool jogadorCorreto = true;
 bool coordenadasCorretas = true;
+struct sigaction sinal;
+sigset_t newmask, oldmask;
 
 //Nome da fila
 const char* NOME_FILA = "/jogoVelha";
@@ -46,7 +48,10 @@ void mensagem_jogador();
 void tabuleiro();
 void grava_log();
 void PIPE_data_hora();
+void initiate_handler(struct sigaction* sign);
+void treat_sign(int signum);
 
+//Método main
 int main(void) {
 	//Declaração da fila
 	mqd_t queue;
@@ -55,6 +60,8 @@ int main(void) {
 	//Declaração do tamanho do buffer
 	ssize_t tam_buffer;
 	ssize_t nbytes;
+
+	//initiate_handler(&sinal);
 
 
 	//Obter descritor (mq_open+O_RDONLY)
@@ -66,6 +73,9 @@ int main(void) {
 
 
 	while(!ganhador){
+
+		initiate_handler(&sinal);
+
 		//Alocar buffer para receber msg
 		tam_buffer = get_msg_buffer_size(queue);
 		buffer = calloc(tam_buffer, 1);
@@ -379,3 +389,48 @@ ssize_t get_msg_buffer_size(mqd_t queue) {
 	perror("aloca_msg_buffer");
 	exit(3);
 }
+
+//Instanciador de sinais
+//Recebe por parâmetro o sinal e inicia o tratador de sinais.
+void initiate_handler(struct sigaction* sign){
+	//sigemptyset(&newmask);
+	//sigaddset(&newmask, SIGINT);
+	sigfillset(&newmask);
+
+  	memset(&sinal, 0, sizeof(sinal));
+  	sinal.sa_handler = &treat_sign;
+ 
+  	if(sigaction(SIGALRM, &sinal, NULL) != 0){
+    		perror("Falha ao instalar tratador do sinal SIGALRM");
+    		exit(-1);
+  	}
+
+	if(sigaction(SIGINT, &sinal, NULL) != 0){
+    		perror("Falha ao instalar tratador do sinal SIGINT");
+    		exit(-1);
+  	}
+
+	if(sigaction(SIGCHLD, &sinal, NULL) != 0){
+    		perror("Falha ao instalar tratador do sinal SIGCHLD");
+    		exit(-1);
+  	}
+}
+
+//Tratador de sinais
+//Recebe por parâmetro o sinal  
+//Executa o tratamento adequado de acordo com o sinal recebido.
+void treat_sign(int signum){
+	switch(signum){
+ 	 case SIGCONT: 
+		printf("\n Recebido sinal SIGCONT - %d\n", signum); break;
+	 case SIGTERM: 
+		printf("\n Recebido sinal SIGTERM - %d\n", signum); break;
+	 case SIGTSTP: 
+		printf("\n Recebido sinal SIGTSTP - %d\n", signum); break;	 
+	case SIGINT: 
+		printf("\n Recebido sinal SIGINT - %d\n", signum); break;	 
+	case SIGUSR1: 
+		printf("\n Recebido sinal SIGUSR1 - %d\n", signum); break;		 
+	}	
+}
+
