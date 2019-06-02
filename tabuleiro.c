@@ -46,7 +46,7 @@ void valida_jogada(TJogoVelha* jv);
 void valida_coordenadas(TJogoVelha* jv);
 void mensagem_jogador();
 void tabuleiro();
-void grava_log();
+void grava_log(TJogoVelha* jv);
 void PIPE_data_hora();
 void initiate_handler(struct sigaction* sign);
 
@@ -95,7 +95,7 @@ int main(void) {
 			verifica_ganhador();
 			strcpy(player, jv->playerID);
 		}
-		grava_log();	
+		grava_log(jv);	
 	}
 
 	//Liberar descritor (mq_cdeve acumular o pesolose)
@@ -295,11 +295,12 @@ void verifica_ganhador(){
 
 //Método responsável por capturar as jogadas e ações do jogo
 //Cria dois arquivos de log com as capturas feitas ao longo do jogo, um para cada jogador
-void grava_log() {
+void grava_log(TJogoVelha* jv) {
 	int fd;
 	char nomeLog[50]= " ";
-	char texto[5000]=" ";
+	char texto[5000] = " ";
 	char status[50]= " ";
+	char coord[1] = " ";
 
 	if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
 		strcpy(nomeLog, "log_jogadas_player1.txt");
@@ -328,6 +329,7 @@ void grava_log() {
 		PIPE_data_hora();
 		strcat(texto, dataHora);
 		strcat(texto, ";");
+		strcat(texto, "Jogador:");
 		if (strlen(player) == 0) {
 			strcat(texto, "p1");
 		} else {
@@ -335,11 +337,11 @@ void grava_log() {
 		}
 		strcat(texto, ";");
 		strcat(texto, "lance:");
-		if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
-			strcat(texto, "X");
-		} else if (strcmp(player, "p2") == 0) {
-			strcat(texto, "O");
-		}
+		sprintf(coord, "%d", jv->coord1);
+		strcat(texto, coord);
+		strcat(texto, " ");
+		sprintf(coord, "%d", jv->coord2);
+		strcat(texto, coord);
 		strcat(texto, ";");
 		strcat(texto, status);
 		
@@ -359,6 +361,7 @@ void grava_log() {
 		PIPE_data_hora();
 		strcat(texto, dataHora);
 		strcat(texto, ";");
+		strcat(texto, "Jogador:");
 		if (strlen(player) == 0) {
 			strcat(texto, "p1");
 		} else {
@@ -366,11 +369,11 @@ void grava_log() {
 		}
 		strcat(texto, ";");
 		strcat(texto, "lance:");
-		if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
-			strcat(texto, "X");
-		} else if (strcmp(player, "p2") == 0) {
-			strcat(texto, "O");
-		}
+		sprintf(coord, "%d", jv->coord1);
+		strcat(texto, coord);
+		strcat(texto, " ");
+		sprintf(coord, "%d", jv->coord2);
+		strcat(texto, coord);
 		strcat(texto, ";");
 		strcat(texto, status);
 		
