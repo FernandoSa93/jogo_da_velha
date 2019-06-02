@@ -21,6 +21,8 @@ typedef struct JogoVelha {
 	int coord2;
 } TJogoVelha;
 
+//Método main
+//Realiza o envio da mensagem da jogada
 int main(int argc, char* argv[]) {
 	//Declaração da fila
 	mqd_t queue;

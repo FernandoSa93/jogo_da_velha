@@ -25,9 +25,11 @@ char dataHora[100];
 bool ganhador = false;
 bool jogadorCorreto = true;
 bool coordenadasCorretas = true;
+struct sigaction sinal;
+sigset_t newmask, oldmask;
 
 //Nome da fila
-const char* NOME_FILA = "/jogoVelha";
+const char* NOME_FILA = "/jogoVelha1";
 
 //Estrutura de dados para a mensagem
 typedef struct JogoVelha {
@@ -46,7 +48,9 @@ void mensagem_jogador();
 void tabuleiro();
 void grava_log();
 void PIPE_data_hora();
+void initiate_handler(struct sigaction* sign);
 
+//Método main
 int main(void) {
 	//Declaração da fila
 	mqd_t queue;
@@ -56,7 +60,6 @@ int main(void) {
 	ssize_t tam_buffer;
 	ssize_t nbytes;
 
-
 	//Obter descritor (mq_open+O_RDONLY)
 	queue = mq_open(NOME_FILA, O_RDONLY);
 	if (queue == (mqd_t) -1) {
@@ -64,8 +67,10 @@ int main(void) {
 		exit(2);
 	}
 
+	initiate_handler(&sinal);
 
 	while(!ganhador){
+
 		//Alocar buffer para receber msg
 		tam_buffer = get_msg_buffer_size(queue);
 		buffer = calloc(tam_buffer, 1);
@@ -101,6 +106,8 @@ int main(void) {
 	exit(EXIT_SUCCESS);
 }
 
+//Método void
+//Responsável por imprimir na tela o tabuleiro e a situação atual do jogo
 void tabuleiro() {
 	system("clear");
 	printf("Feito por Nadine e Fernando\n\n\n");
@@ -112,6 +119,9 @@ void tabuleiro() {
 	printf("            %-1s  |  %-1s  |  %-1s  \n\n\n", pos[6], pos[7], pos[8]);
 }
 
+//Método void
+//Recebe o buffer da mensagem de TJogoVelha e valida se o jogador informado é o esperado
+//Caso o jogador informado não seja compátivel com o esperado é emitido um alerta ao jogador
 void valida_jogada(TJogoVelha* jv) {
 	if (coordenadasCorretas) {
 		if (strlen(player) == 0) {
@@ -153,6 +163,7 @@ void valida_jogada(TJogoVelha* jv) {
 	}
 }
 
+//Método void que informa qual o jogador da vez
 void mensagem_jogador() {
 	if ((strlen(player) == 0) || (strcmp(player, "p2") == 0)) {
 		printf("Aguardando jogada do Jogador 1:\n");
@@ -160,6 +171,10 @@ void mensagem_jogador() {
 		printf("Aguardando jogada do Jogador 2:\n");
 	} 
 }
+
+//Método void, recebe por parametro o buffer TJogoVelha
+//Verifica as coordenadas recebidas e faz a validação
+//Caso as coordenadas estejam fora do espaço do tabuleiro ou a posição já esteja preenchida é emitido um alerta ao usuário para jogar novamente
 void valida_coordenadas(TJogoVelha* jv) {
 	if (((jv->coord1 > 3) || (jv->coord1 < 1)) ||
             ((jv->coord2 > 3) || (jv->coord2 < 1))) {
@@ -208,6 +223,8 @@ void valida_coordenadas(TJogoVelha* jv) {
 	}
 }
 
+//Método void, recebe por parametro o buffer TJogoVelha
+//Verifica as coordenadas recebidas e executa a jogada
 void realiza_jogada(TJogoVelha* jv) {
 	if ((strlen(player) == 0) || (strcmp(player, "p1") == 0)) {
 		strcpy(jogada, "X");
@@ -238,6 +255,7 @@ void realiza_jogada(TJogoVelha* jv) {
 	sleep(3);
 }
 
+//Método void responsável por verificar quem foi o vencedor do jogo
 void verifica_ganhador(){
 	if (((strcmp(pos[0], "X") == 0) && (strcmp(pos[1], "X") == 0) && (strcmp(pos[2], "X") == 0)) || 
 	   ((strcmp(pos[3], "X") == 0) && (strcmp(pos[4], "X") == 0) && (strcmp(pos[5], "X") == 0)) || 
@@ -250,7 +268,7 @@ void verifica_ganhador(){
 		tabuleiro();
 		printf("Jogador 1 ganhou!\n");
 		ganhador = true;
-	} else if (((strcmp(pos[0], "X") == 0) && (strcmp(pos[1], "X") == 0) && (strcmp(pos[2], "X") == 0)) || 
+	} else if (((strcmp(pos[0], "O") == 0) && (strcmp(pos[1], "O") == 0) && (strcmp(pos[2], "O") == 0)) || 
 	   ((strcmp(pos[3], "O") == 0) && (strcmp(pos[4], "O") == 0) && (strcmp(pos[5], "O") == 0)) || 
 	   ((strcmp(pos[6], "O") == 0) && (strcmp(pos[7], "O") == 0) && (strcmp(pos[8], "O") == 0)) ||  
 	   ((strcmp(pos[0], "O") == 0) && (strcmp(pos[3], "O") == 0) && (strcmp(pos[6], "O") == 0)) ||  
@@ -261,9 +279,22 @@ void verifica_ganhador(){
 		tabuleiro();
 		printf("Jogador 2 ganhou!\n");
 		ganhador = true;
+	} else if ((((strlen(pos[0]) != 0) && (strlen(pos[1]) != 0) && (strlen(pos[2]) != 0)) && 
+	   ((strlen(pos[3]) != 0) && (strlen(pos[4]) != 0) && (strlen(pos[5]) != 0)) && 
+	   ((strlen(pos[6]) != 0) && (strlen(pos[7]) != 0) && (strlen(pos[8]) != 0)) &&  
+	   ((strlen(pos[0]) != 0) && (strlen(pos[3]) != 0) && (strlen(pos[6]) != 0)) &&  
+           ((strlen(pos[1]) != 0) && (strlen(pos[4]) != 0) && (strlen(pos[7]) != 0)) && 
+	   ((strlen(pos[2]) != 0) && (strlen(pos[5]) != 0) && (strlen(pos[8]) != 0)) && 
+	   ((strlen(pos[0]) != 0) && (strlen(pos[4]) != 0) && (strlen(pos[8]) != 0)) && 
+	   ((strlen(pos[2]) != 0) && (strlen(pos[4]) != 0) && (strlen(pos[6]) != 0))) && (ganhador != true)) {
+		tabuleiro();
+		printf("Ninguém ganhou, o jogo empatou!\n");
+		ganhador = true;
 	}
 }
 
+//Método responsável por capturar as jogadas e ações do jogo
+//Cria dois arquivos de log com as capturas feitas ao longo do jogo, um para cada jogador
 void grava_log() {
 	int fd;
 	char nomeLog[50]= " ";
@@ -348,7 +379,7 @@ void grava_log() {
 	close (fd);
 }
 
-//Método PIPE para pegar a saída do comando date(IPC adicional)
+//Método PIPE para pegar a saída do comando date (IPC adicional)
 void PIPE_data_hora() {
 	int pfd[2];
 	if (pipe(pfd) != 0) perror("pipe()");
@@ -368,6 +399,7 @@ void PIPE_data_hora() {
 		}
 }
 
+//Método responsável por definir o tamanho do buffer
 ssize_t get_msg_buffer_size(mqd_t queue) {
 	struct mq_attr attr;
 
@@ -379,3 +411,13 @@ ssize_t get_msg_buffer_size(mqd_t queue) {
 	perror("aloca_msg_buffer");
 	exit(3);
 }
+
+//Instanciador de sinais
+//Recebe por parâmetro o sinal e bloqueia o sinal recebido.
+void initiate_handler(struct sigaction* sign){
+	sigfillset(&newmask);
+ 	sigprocmask(SIG_BLOCK, &newmask, &oldmask);
+
+}
+
+
