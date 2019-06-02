@@ -29,7 +29,7 @@ struct sigaction sinal;
 sigset_t newmask, oldmask;
 
 //Nome da fila
-const char* NOME_FILA = "/jogoVelha1";
+const char* NOME_FILA = "/jogoVelha";
 
 //Estrutura de dados para a mensagem
 typedef struct JogoVelha {
